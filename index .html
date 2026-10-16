@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>ZeroNet P2P - Offline Mesh Messenger</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap');
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #05080f;
+      color: #f1f5f9;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .neon-green-glow { box-shadow: 0 0 15px rgba(0, 255, 157, 0.3); }
+    .neon-blue-glow { box-shadow: 0 0 15px rgba(0, 210, 255, 0.3); }
+
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: #0B0F19; }
+    ::-webkit-scrollbar-thumb { background: #1E293B; border-radius: 4px; }
+  </style>
+</head>
+<body class="flex justify-center items-center min-h-screen p-0 sm:p-4">
+
+  <!-- Hidden Real File Inputs for Android/Browser File Picker -->
+  <input id="realMediaInput" type="file" accept="image/*,video/*" class="hidden" onchange="handleRealFileSelected(this, 200, 'Media')" />
+  <input id="realPdfInput" type="file" accept=".pdf,.doc,.docx,.zip" class="hidden" onchange="handleRealFileSelected(this, 500, 'Document')" />
+
+  <!-- Mobile App Container -->
+  <div class="w-full max-w-[420px] h-screen sm:h-[840px] bg-[#0B0F19] sm:rounded-[32px] sm:border sm:border-slate-800 shadow-2xl flex flex-col overflow-hidden relative">
+
+    <!-- ================= SCREEN 1: ONBOARDING ================= -->
+    <div id="onboardingScreen" class="flex-1 flex flex-col justify-between p-6 bg-gradient-to-b from-[#0B0F19] via-[#0E1525] to-[#0B0F19] z-20 overflow-y-auto">
+      <div class="mt-4 text-center">
+        <div class="w-20 h-20 rounded-2xl bg-[#00FF9D]/10 border border-[#00FF9D]/40 flex items-center justify-center mx-auto mb-4 neon-green-glow">
+          <svg class="w-10 h-10 text-[#00FF9D]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+          </svg>
+        </div>
+        <h1 class="text-3xl font-bold tracking-tight text-white">Zero<span class="text-[#00FF9D]">Net</span></h1>
+        <p class="text-xs mono text-slate-400 mt-1">ZERO INTERNET • ZERO SIM • ZERO ADS</p>
+      </div>
+
+      <div class="space-y-4 my-auto py-3">
+        <!-- Nickname Input with Maxlength 12 Limit -->
+        <div class="bg-[#131B2E] border border-slate-800 rounded-2xl p-4">
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Your Device Nickname (Max 12 Chars)</label>
+          <input id="nicknameInput" type="text" value="Soumya" maxlength="12" placeholder="Enter name (max 12 chars)..."
+            class="w-full bg-[#0B0F19] border border-slate-700 focus:border-[#00FF9D] rounded-xl px-4 py-3 text-white font-medium outline-none transition" />
+          <p class="text-[11px] text-slate-400 mt-2">Strictly limited to 12 characters to prevent header overflow.</p>
+        </div>
+
+        <!-- Silent Mesh Give & Take Toggle -->
+        <div class="bg-[#131B2E] border border-slate-800 rounded-2xl p-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-[#00D2FF]"></span>
+                <h3 class="text-sm font-semibold text-white">Long-Range Silent Mesh</h3>
+              </div>
+              <p class="text-xs text-slate-400 mt-1 pr-2">
+                Relays encrypted text packets silently in RAM without pop-ups or storage.
+              </p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+              <input id="onboardMeshToggle" type="checkbox" checked class="sr-only peer" onchange="syncMeshToggle(this.checked)">
+              <div class="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:bg-[#00D2FF] after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Legal Disclaimer & Permission Notice -->
+        <div class="bg-[#131B2E]/70 border border-slate-800 rounded-2xl p-3.5 text-[11px] text-slate-400 space-y-1.5">
+          <label class="flex items-start gap-2.5 cursor-pointer">
+            <input id="termsCheckbox" type="checkbox" checked class="mt-0.5 accent-[#00FF9D] rounded" />
+            <span>
+              <strong class="text-slate-200">Terms & Privacy:</strong> ZeroNet is a 100% offline P2P tool with no central server. Users are solely responsible for files/messages shared. Nearby/Bluetooth permissions are used strictly for local discovery (Zero GPS tracking).
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <button onclick="startApp()" class="w-full py-4 rounded-2xl bg-[#00FF9D] hover:bg-[#00e68e] text-[#05080f] font-bold text-base tracking-wide transition neon-green-glow flex items-center justify-center gap-2 shrink-0">
+        <span>Launch ZeroNet</span>
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- ================= SCREEN 2: MAIN DASHBOARD ================= -->
+    <div id="mainDashboard" class="hidden flex-1 flex flex-col overflow-hidden">
+      <!-- Top App Bar (SAFE FIXED HEADER WITH TEXT ELLIPSIS) -->
+      <header class="px-3 py-3 bg-[#111827] border-b border-slate-800/80 flex items-center justify-between gap-1.5">
+        <!-- Left Brand & Strict Truncated Username -->
+        <div class="flex items-center gap-2 min-w-0 max-w-[150px] shrink-0">
+          <button onclick="editProfile()" title="Edit Nickname" class="w-8 h-8 rounded-xl bg-[#00FF9D]/10 border border-[#00FF9D]/30 flex items-center justify-center text-[#00FF9D] font-bold text-xs shrink-0">
+            📡
+          </button>
+          <div class="leading-tight min-w-0 flex-1">
+            <h2 class="font-bold text-sm tracking-tight text-white truncate">Zero<span class="text-[#00FF9D]">Net</span></h2>
+            <span id="userBadgeText" class="block text-[10px] mono text-slate-400 truncate max-w-full">@Soumya</span>
+          </div>
+        </div>
+
+        <!-- Right Compact Action Buttons -->
+        <div class="flex items-center gap-1 shrink-0">
+          <!-- Mesh Status Pill -->
+          <button onclick="toggleHeaderMesh()" id="headerMeshBtn" class="px-2 py-1.5 rounded-xl text-[10px] font-semibold bg-[#00D2FF]/15 text-[#00D2FF] border border-[#00D2FF]/40 flex items-center gap-1 whitespace-nowrap transition">
+            <span id="headerMeshDot" class="w-2 h-2 rounded-full bg-[#00D2FF]"></span>
+            <span id="headerMeshLabel">Mesh: ON</span>
+          </button>
+
+          <!-- Blocked Users Icon + Number Only -->
+          <button onclick="openBlockListModal()" title="Blocked Users List" class="px-2 py-1.5 rounded-xl text-[10px] font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25 flex items-center gap-1 whitespace-nowrap transition">
+            <span>🚫</span>
+            <span id="blockedCountBadge" class="mono text-[10px] font-bold text-rose-200">0</span>
+          </button>
+
+          <!-- Compact Demo Req Button -->
+          <button onclick="openRequestModal('Vikram_X9', 'Direct P2P', '35m', 'vikram')" title="Simulate Incoming Request"
+            class="px-2 py-1.5 rounded-xl text-[10px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 flex items-center gap-1 whitespace-nowrap transition">
+            <span>🔔 Req</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- WhatsApp Style 2-Tab Navigation -->
+      <div class="p-2.5 bg-[#0E1422] border-b border-slate-800/80">
+        <div class="grid grid-cols-2 bg-[#131B2E] p-1 rounded-2xl border border-slate-800 text-xs font-semibold">
+          <button id="tabChatsBtn" onclick="switchTab('chats')" class="py-2.5 rounded-xl bg-[#00FF9D]/15 text-[#00FF9D] border border-[#00FF9D]/40 flex items-center justify-center gap-2 transition">
+            <span>💬 Chats</span>
+            <span id="chatTabCount" class="px-1.5 py-0.5 text-[10px] rounded-full bg-[#00FF9D] text-[#05080f] font-bold">3</span>
+          </button>
+          <button id="tabRadarBtn" onclick="switchTab('radar')" class="py-2.5 rounded-xl text-slate-400 border border-transparent flex items-center justify-center gap-2 transition">
+            <span>🔢 Nearby List</span>
+            <span id="nearbyTabCount" class="px-1.5 py-0.5 text-[10px] rounded-full bg-[#00D2FF]/20 text-[#00D2FF]">5</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- TAB 1 CONTENT: CHATS LIST -->
+      <div id="chatsTabContent" class="flex-1 overflow-y-auto divide-y divide-slate-800/60">
+        <div class="px-4 py-2 bg-[#131B2E]/60 flex items-center justify-between text-[11px] text-slate-400">
+          <span>🟢 Direct Wi-Fi (Files + Chat)</span>
+          <span>🔵 Silent Mesh (Chat Only)</span>
+        </div>
+        <div id="chatsListContainer" class="divide-y divide-slate-800/60"></div>
+      </div>
+
+      <!-- TAB 2 CONTENT: NUMBERED NEARBY LIST -->
+      <div id="radarTabContent" class="hidden flex-1 flex flex-col justify-between p-3.5 overflow-y-auto space-y-3">
+        <div class="bg-[#131B2E] border border-slate-800 rounded-2xl p-3.5 flex items-center justify-between">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-[#00FF9D] animate-ping"></span>
+              <h3 class="text-xs font-bold text-white">Auto-Discovery Numbered List</h3>
+            </div>
+            <p class="text-[11px] text-slate-400 mt-1">
+              🟢 0–50m Direct Wi-Fi | 🔵 50m+ Silent Mesh Relay
+            </p>
+          </div>
+          <button onclick="rescanPeers()" class="px-3 py-2 rounded-xl bg-[#00FF9D]/15 border border-[#00FF9D]/40 text-[#00FF9D] text-xs font-semibold hover:bg-[#00FF9D]/25 transition flex items-center gap-1.5">
+            <span>🔄 Scan</span>
+          </button>
+        </div>
+
+        <!-- Numbered Users List (#1, #2, #3...) -->
+        <div id="numberedNearbyContainer" class="flex-1 space-y-2.5 overflow-y-auto pr-0.5"></div>
+
+        <!-- Bottom Info Card -->
+        <div class="bg-[#131B2E] border border-slate-800 rounded-2xl p-3.5 text-xs space-y-1.5">
+          <div class="flex items-center justify-between">
+            <span class="font-semibold text-white">👆 Tap any numbered peer to Chat or Connect</span>
+            <span class="mono text-[10px] text-[#00D2FF]">RAM-Only Relay</span>
+          </div>
+          <p class="text-slate-400 text-[11px] leading-relaxed">
+            • <strong class="text-slate-200">Priya (#2 - 32m)</strong> acts as a silent bridge so your messages reach <strong class="text-slate-200">Amit (#5 - 145m)</strong> without disturbing Priya!
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SCREEN 4: CHAT & FILE TRANSFER SCREEN ================= -->
+    <div id="chatScreen" class="hidden flex-1 flex flex-col bg-[#0B0F19] z-20 overflow-hidden">
+      <div class="px-3 py-3 bg-[#111827] border-b border-slate-800 flex items-center justify-between gap-1">
+        <div class="flex items-center gap-2 min-w-0">
+          <button onclick="closeChat()" class="p-1.5 rounded-xl hover:bg-slate-800 text-slate-300 shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <div class="min-w-0">
+            <h3 id="chatPeerName" class="font-bold text-sm text-white leading-tight truncate">Priya Patel</h3>
+            <p id="chatPeerStatus" class="text-[11px] mono text-[#00FF9D] truncate">🟢 Direct Wi-Fi • High Speed</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-1.5 shrink-0">
+          <button id="rangeSimBtn" onclick="toggleRangeSimulation()" class="px-2 py-1.5 rounded-xl text-[10px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 whitespace-nowrap transition">
+            Out-of-Range
+          </button>
+          <!-- Delete / Clear Chat History Button -->
+          <button onclick="openDeleteChatModal(activePeer)" title="Delete Chat History" class="px-2 py-1.5 rounded-xl text-[10px] font-semibold bg-slate-800 text-slate-300 border border-slate-700 hover:bg-rose-500/20 hover:text-rose-300 hover:border-rose-500/40 whitespace-nowrap transition">
+            🗑️
+          </button>
+          <button onclick="blockActiveChatPeer()" title="Block User" class="px-2 py-1.5 rounded-xl text-[10px] font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25 whitespace-nowrap transition">
+            🚫
+          </button>
+        </div>
+      </div>
+
+      <div class="bg-[#131B2E]/90 px-3 py-1.5 text-center border-b border-slate-800/80">
+        <p class="text-[10px] mono text-slate-400">🔒 End-to-End Encrypted • Zero Server • Saved in Local Storage</p>
+      </div>
+
+      <div id="chatMessages" class="flex-1 p-4 overflow-y-auto space-y-3.5"></div>
+
+      <!-- Real File Picker Drawer -->
+      <div id="attachDrawer" class="hidden px-4 py-3 bg-[#131B2E] border-t border-slate-800 grid grid-cols-2 gap-3">
+        <button onclick="document.getElementById('realMediaInput').click()" class="p-3 rounded-xl bg-[#0B0F19] border border-slate-700 hover:border-[#00FF9D] flex items-center gap-3 text-left transition">
+          <span class="text-xl">🖼️</span>
+          <div>
+            <p class="text-xs font-semibold text-white">Send Photo / Media</p>
+            <p class="text-[10px] text-slate-400">Pick from Phone (Max 200MB)</p>
+          </div>
+        </button>
+        <button onclick="document.getElementById('realPdfInput').click()" class="p-3 rounded-xl bg-[#0B0F19] border border-slate-700 hover:border-[#00FF9D] flex items-center gap-3 text-left transition">
+          <span class="text-xl">📄</span>
+          <div>
+            <p class="text-xs font-semibold text-white">Send Heavy PDF</p>
+            <p class="text-[10px] text-slate-400">Pick from Phone (Max 500MB)</p>
+          </div>
+        </button>
+      </div>
+
+      <!-- Bottom Input Bar -->
+      <div class="p-2.5 bg-[#111827] border-t border-slate-800 flex items-center gap-2 w-full box-border shrink-0">
+        <button id="attachBtn" onclick="handleAttachClick()" class="w-9 h-9 rounded-xl bg-[#131B2E] border border-slate-700 flex items-center justify-center text-slate-300 hover:text-[#00FF9D] transition shrink-0">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+        </button>
+        <input id="messageInput" type="text" placeholder="Type an offline message..."
+          onkeydown="if(event.key==='Enter') sendMessage()"
+          class="min-w-0 flex-1 bg-[#0B0F19] border border-slate-800 focus:border-[#00FF9D] rounded-xl px-3 py-2 text-xs text-white outline-none box-border" />
+        <button onclick="sendMessage()" class="px-3 py-2 rounded-xl bg-[#00FF9D] text-[#05080f] font-bold text-xs hover:bg-[#00e68e] transition shrink-0 whitespace-nowrap">
+          Send ➤
+        </button>
+      </div>
+    </div>
+
+    <!-- ================= MODAL 1: INCOMING REQUEST MODAL ================= -->
+    <div id="requestModal" class="hidden absolute inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-5">
+      <div class="w-full bg-[#131B2E] border border-slate-700 rounded-3xl p-5 shadow-2xl space-y-4">
+        <div class="flex items-center gap-3">
+          <div class="w-11 h-11 rounded-2xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-xl">🔔</div>
+          <div>
+            <span class="text-[10px] mono uppercase px-2 py-0.5 rounded bg-amber-500/20 text-amber-300">One-Time Trust Check</span>
+            <h4 class="text-base font-bold text-white mt-0.5">New Peer Connection Request</h4>
+          </div>
+        </div>
+
+        <div class="bg-[#0B0F19] border border-slate-800 rounded-2xl p-3.5 text-xs space-y-1.5">
+          <p class="text-slate-300"><strong id="reqPeerName" class="text-white">Vikram_X9</strong> wants to connect with you.</p>
+          <p id="reqConnMode" class="text-[#00FF9D] mono text-[11px]">🔒 Connection: Direct P2P (35m)</p>
+          <p class="text-[11px] text-slate-400 pt-1">Once accepted, this user becomes Trusted. If blocked, you can unblock them anytime from the <strong>🚫</strong> button in top bar.</p>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2.5 pt-1 text-xs font-semibold">
+          <button onclick="closeRequestModal('blocked')" class="py-3 rounded-xl bg-rose-500/15 text-rose-400 border border-rose-500/30 hover:bg-rose-500/25">🚫 Block</button>
+          <button onclick="closeRequestModal('rejected')" class="py-3 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700">Reject</button>
+          <button onclick="closeRequestModal('accepted')" class="py-3 rounded-xl bg-[#00FF9D] text-[#05080f] font-bold neon-green-glow">✓ Accept</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= MODAL 2: BLOCKED USERS LIST MODAL ================= -->
+    <div id="blockListModal" class="hidden absolute inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-5">
+      <div class="w-full bg-[#131B2E] border border-slate-700 rounded-3xl p-5 shadow-2xl space-y-4 max-h-[80%] flex flex-col">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div class="flex items-center gap-2.5">
+            <span class="w-9 h-9 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-base">🚫</span>
+            <div>
+              <h4 class="text-sm font-bold text-white">Blocked Devices List</h4>
+              <p class="text-[11px] text-slate-400">Blocked peers cannot send you requests or messages</p>
+            </div>
+          </div>
+          <button onclick="closeBlockListModal()" class="p-1.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white text-xs font-bold">✕</button>
+        </div>
+        <div id="blockedUsersContainer" class="flex-1 overflow-y-auto space-y-2.5 py-1"></div>
+        <button onclick="closeBlockListModal()" class="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition">Done</button>
+      </div>
+    </div>
+
+    <!-- ================= MODAL 3: DELETE CHAT CONFIRMATION MODAL ================= -->
+    <div id="deleteChatModal" class="hidden absolute inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-5">
+      <div class="w-full bg-[#131B2E] border border-slate-700 rounded-3xl p-5 shadow-2xl space-y-4">
+        <div class="flex items-center gap-3">
+          <div class="w-11 h-11 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-xl">🗑️</div>
+          <div>
+            <span class="text-[10px] mono uppercase px-2 py-0.5 rounded bg-rose-500/20 text-rose-300">Permanent Action</span>
+            <h4 class="text-base font-bold text-white mt-0.5">Delete All Chat Messages?</h4>
+          </div>
+        </div>
+
+        <div class="bg-[#0B0F19] border border-slate-800 rounded-2xl p-3.5 text-xs space-y-1.5">
+          <p class="text-slate-300">Are you sure you want to delete your entire chat history and active file transfers with <strong id="delChatPeerName" class="text-white">Priya Patel</strong>?</p>
+          <p class="text-[11px] text-slate-400 pt-1">This will permanently wipe all messages with this person from your device storage.</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2.5 pt-1 text-xs font-semibold">
+          <button onclick="closeDeleteChatModal()" class="py-3 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
+            Cancel
+          </button>
+          <button onclick="confirmDeleteChat()" class="py-3 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold transition">
+            🗑️ Delete All
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toastBox" class="hidden absolute bottom-20 left-1/2 -translate-x-1/2 bg-[#111827] border border-slate-700 text-white text-xs px-4 py-2.5 rounded-full shadow-xl z-50 whitespace-nowrap"></div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "zeronet_p2p_state_v2";
+    let currentUser = "Soumya";
+    let meshEnabled = true;
+    let activePeer = "priya";
+    let pendingReqKey = "vikram";
+    let pendingDeletePeerKey = null;
+    let isOutOfRange = false;
+    let fileProgress = 64;
+    let filePaused = false;
+    let activeTransferFileName = "Complete_Notes_Bundle.pdf";
+    let activeTransferTotalMB = 450;
+
+    const defaultPeerData = {
+      rahul: {
+        key: "rahul", initials: "RS", name: "Rahul Sharma", mode: "direct", distanceMeters: 18,
+        note: "Direct Wi-Fi • High Speed", trusted: true, blocked: false,
+        messages: [
+          { sender: "me", text: "Sent the 180MB event photos folder." },
+          { sender: "them", text: "Got the 180MB high-res photos! Super fast without internet." }
+        ],
+        hasActiveTransfer: false
+      },
+      priya: {
+        key: "priya", initials: "PP", name: "Priya Patel", mode: "direct", distanceMeters: 32,
+        note: "Direct Wi-Fi • Active Mesh Bridge", trusted: true, blocked: false,
+        messages: [
+          { sender: "them", text: "Hey! Are you in the library? Send me the 450MB PDF notes over Wi-Fi Direct." },
+          { sender: "me", text: "Yes, sending now! Even if you walk out of range, chunked transfer will resume it automatically." }
+        ],
+        hasActiveTransfer: true
+      },
+      vikram: {
+        key: "vikram", initials: "VX", name: "Vikram_X9", mode: "direct", distanceMeters: 35,
+        note: "Untrusted Nearby Device • Tap to Request", trusted: false, blocked: false,
+        messages: [{ sender: "them", text: "Connected via 100% offline P2P!" }],
+        hasActiveTransfer: false
+      },
+      neha: {
+        key: "neha", initials: "NM", name: "Neha_Mesh", mode: "mesh", distanceMeters: 130,
+        note: "Silent Mesh Relay • Tap to Connect", trusted: false, blocked: false,
+        messages: [{ sender: "them", text: "Hi Soumya! Connected across the building via Silent Mesh." }],
+        hasActiveTransfer: false
+      },
+      amit: {
+        key: "amit", initials: "AV", name: "Amit Verma", mode: "mesh", distanceMeters: 145,
+        note: "Silent Mesh via Priya (#2) • Chat Only", trusted: true, blocked: false,
+        messages: [
+          { sender: "them", text: "Bro, I'm on the 3rd floor out of direct range, but connected through Silent Mesh!" },
+          { sender: "me", text: "Awesome! Priya's phone is relaying our encrypted messages silently in RAM without disturbing her." }
+        ],
+        hasActiveTransfer: false
+      }
+    };
+
+    let peerData = {};
+
+    function loadSavedState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          currentUser = parsed.currentUser || "Soumya";
+          meshEnabled = parsed.meshEnabled !== undefined ? parsed.meshEnabled : true;
+          peerData = parsed.peerData || defaultPeerData;
+          document.getElementById('nicknameInput').value = currentUser;
+          document.getElementById('onboardMeshToggle').checked = meshEnabled;
+          updateMeshHeaderUI();
+        } else {
+          peerData = JSON.parse(JSON.stringify(defaultPeerData));
+        }
+      } catch (e) {
+        peerData = JSON.parse(JSON.stringify(defaultPeerData));
+      }
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          currentUser,
+          meshEnabled,
+          peerData
+        }));
+      } catch (e) {}
+    }
+
+    window.onload = function() {
+      loadSavedState();
+    };
+
+    function startApp() {
+      if (!document.getElementById('termsCheckbox').checked) {
+        showToast("⚠️ Please accept the offline P2P Terms of Use first.");
+        return;
+      }
+      const inputVal = document.getElementById('nicknameInput').value.trim();
+      currentUser = inputVal || "Soumya";
+      document.getElementById('userBadgeText').innerText = `@${currentUser}`;
+      document.getElementById('onboardingScreen').classList.add('hidden');
+      document.getElementById('mainDashboard').classList.remove('hidden');
+      saveState();
+      refreshAllLists();
+
+      if (window.ZeroNetNative && window.ZeroNetNative.startMeshDiscovery) {
+        window.ZeroNetNative.startMeshDiscovery(currentUser, meshEnabled);
+      }
+    }
+
+    function editProfile() {
+      document.getElementById('mainDashboard').classList.add('hidden');
+      document.getElementById('onboardingScreen').classList.remove('hidden');
+    }
+
+    function refreshAllLists() {
+      renderChatsList();
+      renderNumberedNearbyList();
+      updateBlockedBadge();
+    }
+
+    function renderChatsList() {
+      const container = document.getElementById('chatsListContainer');
+      container.innerHTML = '';
+      const trustedPeers = Object.values(peerData).filter(p => p.trusted && !p.blocked);
+      document.getElementById('chatTabCount').innerText = trustedPeers.length;
+
+      if (trustedPeers.length === 0) {
+        container.innerHTML = `<div class="p-8 text-center text-xs text-slate-400">No active chats. Go to the Numbered Nearby List to connect!</div>`;
+        return;
+      }
+
+      trustedPeers.forEach(peer => {
+        const isDirect = peer.mode === 'direct';
+        const badgeColor = isDirect ? 'text-[#00FF9D]' : 'text-[#00D2FF]';
+        const dotBg = isDirect ? 'bg-[#00FF9D]' : 'bg-[#00D2FF]';
+        const avatarStyle = isDirect
+          ? 'bg-emerald-500/15 border-[#00FF9D]/50 text-[#00FF9D]'
+          : 'bg-sky-500/15 border-[#00D2FF]/50 text-[#00D2FF]';
+
+        const hasMsgs = peer.messages && peer.messages.length > 0;
+        const lastMsg = peer.hasActiveTransfer
+          ? `📄 Sending: ${activeTransferFileName} (${activeTransferTotalMB} MB)`
+          : (hasMsgs ? peer.messages[peer.messages.length - 1].text : 'No messages yet • Tap to start chatting');
+
+        const progressBarHTML = peer.hasActiveTransfer ? `
+          <div class="w-full bg-slate-800 h-1.5 rounded-full mt-1.5 overflow-hidden">
+            <div class="bg-[#00FF9D] h-full transition-all duration-300" style="width: ${fileProgress}%"></div>
+          </div>
+        ` : '';
+
+        container.innerHTML += `
+          <div onclick="openChat('${peer.key}')" class="p-4 hover:bg-[#131B2E]/60 cursor-pointer transition flex items-center gap-3.5">
+            <div class="relative shrink-0">
+              <div class="w-12 h-12 rounded-2xl border flex items-center justify-center font-bold text-base ${avatarStyle}">${peer.initials}</div>
+              <span class="w-3.5 h-3.5 rounded-full ${dotBg} border-2 border-[#0B0F19] absolute -bottom-0.5 -right-0.5"></span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex justify-between items-baseline">
+                <h3 class="font-semibold text-white truncate">${peer.name}</h3>
+                <span class="text-[11px] mono ${badgeColor}">${isDirect ? 'Direct' : 'Mesh'} • ${peer.distanceMeters}m</span>
+              </div>
+              <p class="text-xs ${hasMsgs || peer.hasActiveTransfer ? 'text-slate-300' : 'text-slate-500 italic'} truncate mt-0.5">${lastMsg}</p>
+              ${progressBarHTML}
+            </div>
+            <button onclick="event.stopPropagation(); openDeleteChatModal('${peer.key}')" title="Delete Chat with ${peer.name}"
+              class="p-2.5 rounded-xl bg-slate-800/70 border border-slate-700/80 text-slate-400 hover:bg-rose-500/15 hover:text-rose-300 hover:border-rose-500/30 text-xs shrink-0 transition">
+              🗑️
+            </button>
+          </div>
+        `;
+      });
+    }
+
+    function renderNumberedNearbyList() {
+      const container = document.getElementById('numberedNearbyContainer');
+      container.innerHTML = '';
+
+      const visiblePeers = Object.values(peerData)
+        .filter(p => !p.blocked && (meshEnabled || p.mode === 'direct'))
+        .sort((a, b) => a.distanceMeters - b.distanceMeters);
+
+      document.getElementById('nearbyTabCount').innerText = visiblePeers.length;
+
+      if (visiblePeers.length === 0) {
+        container.innerHTML = `<div class="p-8 text-center text-xs text-slate-400 bg-[#131B2E] rounded-2xl border border-slate-800">No nearby peers found or all peers are blocked.</div>`;
+        return;
+      }
+
+      visiblePeers.forEach((peer, index) => {
+        const rankNumber = index + 1;
+        const isDirect = peer.mode === 'direct';
+        const numBadgeStyle = isDirect
+          ? 'bg-[#00FF9D]/15 border-[#00FF9D]/50 text-[#00FF9D]'
+          : 'bg-[#00D2FF]/15 border-[#00D2FF]/50 text-[#00D2FF]';
+
+        const statusBadge = peer.trusted
+          ? `<span class="px-2 py-0.5 rounded-md bg-emerald-500/15 text-[#00FF9D] text-[10px] mono font-semibold">✓ Trusted</span>`
+          : `<span class="px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 text-[10px] mono font-semibold">New Peer</span>`;
+
+        const actionBtn = peer.trusted
+          ? `<button onclick="openChat('${peer.key}')" class="px-3 py-1.5 rounded-xl bg-[#00FF9D] text-[#05080f] font-bold text-xs">Chat</button>`
+          : `<button onclick="openRequestModal('${peer.name}', '${isDirect ? 'Direct P2P' : 'Silent Mesh Relay'}', '${peer.distanceMeters}m', '${peer.key}')" class="px-3 py-1.5 rounded-xl bg-[#00D2FF]/20 border border-[#00D2FF]/50 text-[#00D2FF] font-semibold text-xs">Connect</button>`;
+
+        container.innerHTML += `
+          <div class="bg-[#131B2E] border border-slate-800 hover:border-slate-700 rounded-2xl p-3 flex items-center justify-between gap-3 transition">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-10 h-10 rounded-xl border flex flex-col items-center justify-center shrink-0 ${numBadgeStyle}">
+                <span class="text-[9px] mono uppercase opacity-75 leading-none">NO.</span>
+                <span class="text-sm font-bold mono leading-tight">#${rankNumber}</span>
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <h4 class="font-bold text-sm text-white truncate">${peer.name}</h4>
+                  ${statusBadge}
+                </div>
+                <div class="flex items-center gap-2 mt-1 text-[11px] mono">
+                  <span class="${isDirect ? 'text-[#00FF9D]' : 'text-[#00D2FF]'}">${isDirect ? '🟢' : '🔵'} ${peer.distanceMeters}m away</span>
+                  <span class="text-slate-500">•</span>
+                  <span class="text-slate-400 truncate text-[10px]">${peer.note}</span>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+              ${actionBtn}
+              <button onclick="blockUserByKey('${peer.key}')" title="Block User" class="p-2 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 text-xs">🚫</button>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    function openDeleteChatModal(peerKey) {
+      if (!peerKey || !peerData[peerKey]) return;
+      pendingDeletePeerKey = peerKey;
+      document.getElementById('delChatPeerName').innerText = peerData[peerKey].name;
+      document.getElementById('deleteChatModal').classList.remove('hidden');
+    }
+
+    function closeDeleteChatModal() {
+      pendingDeletePeerKey = null;
+      document.getElementById('deleteChatModal').classList.add('hidden');
+    }
+
+    function confirmDeleteChat() {
+      if (!pendingDeletePeerKey || !peerData[pendingDeletePeerKey]) {
+        closeDeleteChatModal();
+        return;
+      }
+      const targetPeer = peerData[pendingDeletePeerKey];
+      targetPeer.messages = [];
+      targetPeer.hasActiveTransfer = false;
+      saveState();
+
+      if (!document.getElementById('chatScreen').classList.contains('hidden') && activePeer === pendingDeletePeerKey) {
+        renderMessages();
+      }
+      refreshAllLists();
+      closeDeleteChatModal();
+      showToast(`🗑️ All chats with ${targetPeer.name} deleted!`);
+    }
+
+    function blockUserByKey(key) {
+      if (!peerData[key]) return;
+      peerData[key].blocked = true;
+      saveState();
+      refreshAllLists();
+      showToast(`🚫 ${peerData[key].name} added to Blocked List.`);
+    }
+
+    function blockActiveChatPeer() {
+      if (!activePeer || !peerData[activePeer]) return;
+      const name = peerData[activePeer].name;
+      peerData[activePeer].blocked = true;
+      saveState();
+      closeChat();
+      refreshAllLists();
+      showToast(`🚫 ${name} blocked. Tap '🚫' in top bar to view or unblock.`);
+    }
+
+    function unblockUser(key) {
+      if (!peerData[key]) return;
+      peerData[key].blocked = false;
+      saveState();
+      renderBlockedListModalContent();
+      refreshAllLists();
+      showToast(`✓ ${peerData[key].name} unblocked and restored!`);
+    }
+
+    function updateBlockedBadge() {
+      const blockedPeers = Object.values(peerData).filter(p => p.blocked);
+      document.getElementById('blockedCountBadge').innerText = blockedPeers.length;
+    }
+
+    function openBlockListModal() {
+      renderBlockedListModalContent();
+      document.getElementById('blockListModal').classList.remove('hidden');
+    }
+
+    function closeBlockListModal() {
+      document.getElementById('blockListModal').classList.add('hidden');
+    }
+
+    function renderBlockedListModalContent() {
+      const container = document.getElementById('blockedUsersContainer');
+      const blockedPeers = Object.values(peerData).filter(p => p.blocked);
+
+      if (blockedPeers.length === 0) {
+        container.innerHTML = `
+          <div class="bg-[#0B0F19] border border-slate-800 rounded-2xl p-6 text-center space-y-1">
+            <p class="text-xs font-semibold text-slate-300">No Blocked Users</p>
+            <p class="text-[11px] text-slate-500">Blocked devices appear here so you can unblock them anytime.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = '';
+      blockedPeers.forEach((peer, idx) => {
+        container.innerHTML += `
+          <div class="bg-[#0B0F19] border border-slate-800 rounded-2xl p-3 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <span class="w-8 h-8 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-400 mono text-xs font-bold flex items-center justify-center">#${idx + 1}</span>
+              <div>
+                <h5 class="text-xs font-bold text-white">${peer.name}</h5>
+                <p class="text-[10px] mono text-slate-400">Last seen at ${peer.distanceMeters}m • Blocked</p>
+              </div>
+            </div>
+            <button onclick="unblockUser('${peer.key}')" class="px-3 py-1.5 rounded-xl bg-[#00FF9D]/15 border border-[#00FF9D]/40 text-[#00FF9D] hover:bg-[#00FF9D]/25 text-xs font-bold transition">✓ Unblock</button>
+          </div>
+        `;
+      });
+    }
+
+    function rescanPeers() {
+      if (window.ZeroNetNative && window.ZeroNetNative.rescanNearby) {
+        window.ZeroNetNative.rescanNearby();
+      }
+      showToast("🔄 Scanning Bluetooth LE + Wi-Fi Direct channels...");
+      refreshAllLists();
+    }
+
+    function syncMeshToggle(checked) {
+      meshEnabled = checked;
+      updateMeshHeaderUI();
+      saveState();
+      refreshAllLists();
+    }
+
+    function toggleHeaderMesh() {
+      meshEnabled = !meshEnabled;
+      document.getElementById('onboardMeshToggle').checked = meshEnabled;
+      updateMeshHeaderUI();
+      saveState();
+      refreshAllLists();
+      showToast(meshEnabled ? "Silent Mesh Mode ON (50m–200m Active)" : "Mesh Mode OFF (Direct 50m Range Only)");
+    }
+
+    function updateMeshHeaderUI() {
+      const btn = document.getElementById('headerMeshBtn');
+      const dot = document.getElementById('headerMeshDot');
+      const label = document.getElementById('headerMeshLabel');
+      if (meshEnabled) {
+        btn.className = "px-2.5 py-1.5 rounded-xl text-[11px] font-semibold bg-[#00D2FF]/15 text-[#00D2FF] border border-[#00D2FF]/40 flex items-center gap-1 whitespace-nowrap transition";
+        dot.className = "w-2 h-2 rounded-full bg-[#00D2FF]";
+        label.innerText = "Mesh: ON";
+      } else {
+        btn.className = "px-2.5 py-1.5 rounded-xl text-[11px] font-semibold bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1 whitespace-nowrap transition";
+        dot.className = "w-2 h-2 rounded-full bg-slate-500";
+        label.innerText = "Mesh: OFF";
+      }
+    }
+
+    function switchTab(tab) {
+      const chatsContent = document.getElementById('chatsTabContent');
+      const radarContent = document.getElementById('radarTabContent');
+      const tabChatsBtn = document.getElementById('tabChatsBtn');
+      const tabRadarBtn = document.getElementById('tabRadarBtn');
+
+      if (tab === 'chats') {
+        chatsContent.classList.remove('hidden');
+        radarContent.classList.add('hidden');
+        tabChatsBtn.className = "py-2.5 rounded-xl bg-[#00FF9D]/15 text-[#00FF9D] border border-[#00FF9D]/40 flex items-center justify-center gap-2 transition";
+        tabRadarBtn.className = "py-2.5 rounded-xl text-slate-400 border border-transparent flex items-center justify-center gap-2 transition";
+      } else {
+        chatsContent.classList.add('hidden');
+        radarContent.classList.remove('hidden');
+        tabRadarBtn.className = "py-2.5 rounded-xl bg-[#00D2FF]/15 text-[#00D2FF] border border-[#00D2FF]/40 flex items-center justify-center gap-2 transition";
+        tabChatsBtn.className = "py-2.5 rounded-xl text-slate-400 border border-transparent flex items-center justify-center gap-2 transition";
+      }
+    }
+
+    function openChat(peerKey) {
+      activePeer = peerKey;
+      isOutOfRange = false;
+      document.getElementById('attachDrawer').classList.add('hidden');
+      document.getElementById('mainDashboard').classList.add('hidden');
+      document.getElementById('chatScreen').classList.remove('hidden');
+      renderChatHeader();
+      renderMessages();
+    }
+
+    function closeChat() {
+      document.getElementById('chatScreen').classList.add('hidden');
+      document.getElementById('mainDashboard').classList.remove('hidden');
+      refreshAllLists();
+    }
+
+    function renderChatHeader() {
+      const peer = peerData[activePeer];
+      document.getElementById('chatPeerName').innerText = peer.name;
+      const statusEl = document.getElementById('chatPeerStatus');
+      const rangeBtn = document.getElementById('rangeSimBtn');
+
+      if (isOutOfRange) {
+        statusEl.innerText = "⚠️ Out of Range • Waiting to Auto-Resume...";
+        statusEl.className = "text-[11px] mono text-amber-400 truncate";
+        rangeBtn.innerText = "Bring In Range";
+        rangeBtn.className = "px-2 py-1.5 rounded-xl text-[10px] font-semibold bg-[#00FF9D]/20 text-[#00FF9D] border border-[#00FF9D]/40 whitespace-nowrap";
+      } else if (peer.mode === 'direct') {
+        statusEl.innerText = `🟢 Direct Wi-Fi (${peer.distanceMeters}m) • High Speed`;
+        statusEl.className = "text-[11px] mono text-[#00FF9D] truncate";
+        rangeBtn.innerText = "Out-of-Range";
+        rangeBtn.className = "px-2 py-1.5 rounded-xl text-[10px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 whitespace-nowrap";
+      } else {
+        statusEl.innerText = `🔵 Silent Mesh (${peer.distanceMeters}m) • Chat Only`;
+        statusEl.className = "text-[11px] mono text-[#00D2FF] truncate";
+        rangeBtn.innerText = "Out-of-Range";
+        rangeBtn.className = "px-2 py-1.5 rounded-xl text-[10px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 whitespace-nowrap";
+      }
+    }
+
+    function renderMessages() {
+      const container = document.getElementById('chatMessages');
+      const peer = peerData[activePeer];
+      container.innerHTML = '';
+
+      if ((!peer.messages || peer.messages.length === 0) && !peer.hasActiveTransfer) {
+        container.innerHTML = `
+          <div class="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500 space-y-2">
+            <span class="text-2xl">💬</span>
+            <p class="text-xs font-semibold text-slate-400">No messages with ${peer.name}</p>
+            <p class="text-[11px]">Send an offline encrypted message or tap [+] to share files.</p>
+          </div>
+        `;
+        return;
+      }
+
+      peer.messages.forEach(msg => {
+        const align = msg.sender === 'me' ? 'justify-end' : 'justify-start';
+        const bubbleStyle = msg.sender === 'me'
+          ? 'bg-[#00FF9D]/15 border border-[#00FF9D]/40 text-white rounded-2xl rounded-tr-none'
+          : 'bg-[#131B2E] border border-slate-800 text-slate-200 rounded-2xl rounded-tl-none';
+
+        container.innerHTML += `
+          <div class="flex ${align}">
+            <div class="max-w-[80%] px-3.5 py-2.5 text-xs leading-relaxed ${bubbleStyle}">
+              <p>${msg.text}</p>
+              <div class="text-[9px] mono text-slate-400 text-right mt-1">${msg.sender === 'me' ? '✓✓ Encrypted' : 'Verified P2P'}</div>
+            </div>
+          </div>
+        `;
+      });
+
+      if (peer.hasActiveTransfer) {
+        const mbDone = Math.round((fileProgress / 100) * activeTransferTotalMB);
+        const stateBadge = isOutOfRange
+          ? `<span class="text-amber-400 mono text-[10px]">⚠️ Connection Lost — Paused at Chunk #${mbDone}. Waiting for range...</span>`
+          : filePaused
+          ? `<span class="text-slate-400 mono text-[10px]">⏸️ Transfer Paused (${mbDone} MB / ${activeTransferTotalMB} MB)</span>`
+          : `<span class="text-[#00FF9D] mono text-[10px]">⚡ Wi-Fi Direct: ${mbDone} MB / ${activeTransferTotalMB} MB (32 MB/s)</span>`;
+
+        container.innerHTML += `
+          <div class="bg-[#131B2E] border border-[#00FF9D]/40 rounded-2xl p-3.5 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <span class="text-xl">📄</span>
+                <div class="min-w-0">
+                  <p class="text-xs font-bold text-white truncate">${activeTransferFileName}</p>
+                  <p class="text-[10px] mono text-slate-400">${activeTransferTotalMB} MB • Chunked Transfer Engine</p>
+                </div>
+              </div>
+              <button onclick="togglePauseTransfer()" class="px-2.5 py-1 rounded-lg bg-[#0B0F19] border border-slate-700 text-[11px] font-semibold text-white shrink-0">
+                ${filePaused || isOutOfRange ? '▶️ Resume' : '⏸️ Pause'}
+              </button>
+            </div>
+            <div class="w-full bg-[#0B0F19] h-2 rounded-full overflow-hidden">
+              <div class="bg-[#00FF9D] h-full transition-all duration-300" style="width: ${fileProgress}%"></div>
+            </div>
+            <div class="flex justify-between items-center">
+              ${stateBadge}
+              <span class="mono text-xs font-bold text-white">${fileProgress}%</span>
+            </div>
+          </div>
+        `;
+      }
+
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function togglePauseTransfer() {
+      if (isOutOfRange) {
+        showToast("Peer is out of range! Click 'Bring In Range' first.");
+        return;
+      }
+      filePaused = !filePaused;
+      renderMessages();
+    }
+
+    function toggleRangeSimulation() {
+      isOutOfRange = !isOutOfRange;
+      renderChatHeader();
+      renderMessages();
+      showToast(isOutOfRange
+        ? "Out-of-Range: Transfer safely paused at current chunk!"
+        : "Back in Range: Chunked transfer resumed automatically!");
+    }
+
+    function handleAttachClick() {
+      const peer = peerData[activePeer];
+      if (peer.mode === 'mesh') {
+        showToast("🔒 Heavy files are locked in Mesh Mode to protect bridge privacy & battery.");
+        return;
+      }
+      document.getElementById('attachDrawer').classList.toggle('hidden');
+    }
+
+    function handleRealFileSelected(inputEl, maxMB, category) {
+      const file = inputEl.files && inputEl.files[0];
+      if (!file) return;
+      document.getElementById('attachDrawer').classList.add('hidden');
+
+      const sizeMB = Math.max(1, Math.round(file.size / (1024 * 1024)));
+      if (sizeMB > maxMB) {
+        showToast(`⚠️ File is ${sizeMB}MB! Maximum limit for ${category} is ${maxMB}MB.`);
+        inputEl.value = '';
+        return;
+      }
+
+      activeTransferFileName = file.name;
+      activeTransferTotalMB = sizeMB;
+      Object.values(peerData).forEach(p => p.hasActiveTransfer = false);
+      peerData[activePeer].hasActiveTransfer = true;
+      peerData[activePeer].messages.push({
+        sender: 'me',
+        text: `📦 Sending real file via Wi-Fi Direct: ${file.name} (${sizeMB} MB)`
+      });
+      fileProgress = 5;
+      filePaused = false;
+      saveState();
+      renderMessages();
+      inputEl.value = '';
+    }
+
+    function sendMessage() {
+      const input = document.getElementById('messageInput');
+      const text = input.value.trim();
+      if (!text) return;
+      peerData[activePeer].messages.push({ sender: 'me', text });
+      input.value = '';
+      saveState();
+      renderMessages();
+
+      if (window.ZeroNetNative && window.ZeroNetNative.sendEncryptedPacket) {
+        window.ZeroNetNative.sendEncryptedPacket(activePeer, text, peerData[activePeer].mode === 'mesh');
+      }
+    }
+
+    window.onNativePeerDiscovered = function(endpointId, peerName, distanceMeters, isMeshHop) {
+      peerData[endpointId] = {
+        key: endpointId,
+        initials: peerName.substring(0, 2).toUpperCase(),
+        name: peerName,
+        mode: isMeshHop ? "mesh" : "direct",
+        distanceMeters: distanceMeters,
+        note: isMeshHop ? "Silent Mesh Relay" : "Direct Wi-Fi • High Speed",
+        trusted: false,
+        blocked: false,
+        messages: [],
+        hasActiveTransfer: false
+      };
+      saveState();
+      refreshAllLists();
+    };
+
+    window.onNativeMessageReceived = function(endpointId, decryptedText) {
+      if (!peerData[endpointId] || peerData[endpointId].blocked) return;
+      peerData[endpointId].messages.push({ sender: 'them', text: decryptedText });
+      saveState();
+      if (activePeer === endpointId) renderMessages();
+      refreshAllLists();
+    };
+
+    function openRequestModal(name, mode, dist, peerKey = 'vikram') {
+      pendingReqKey = peerKey;
+      document.getElementById('reqPeerName').innerText = name;
+      document.getElementById('reqConnMode').innerText = `🔒 Connection: ${mode} (${dist})`;
+      document.getElementById('requestModal').classList.remove('hidden');
+    }
+
+    function closeRequestModal(action) {
+      document.getElementById('requestModal').classList.add('hidden');
+      const targetPeer = peerData[pendingReqKey];
+      if (!targetPeer) return;
+
+      if (action === 'accepted') {
+        targetPeer.trusted = true;
+        targetPeer.blocked = false;
+        saveState();
+        refreshAllLists();
+        showToast(`✓ ${targetPeer.name} accepted and saved to Chats!`);
+      } else if (action === 'blocked') {
+        targetPeer.blocked = true;
+        saveState();
+        refreshAllLists();
+        showToast(`🚫 ${targetPeer.name} blocked! Tap '🚫' in top bar.`);
+      } else {
+        showToast("Connection request declined.");
+      }
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toastBox');
+      toast.innerText = msg;
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 3200);
+    }
+
+    setInterval(() => {
+      if (!isOutOfRange && !filePaused && fileProgress < 100) {
+        fileProgress = Math.min(100, fileProgress + 4);
+        if (!document.getElementById('mainDashboard').classList.contains('hidden')) {
+          renderChatsList();
+        }
+        if (!document.getElementById('chatScreen').classList.contains('hidden') && peerData[activePeer]?.hasActiveTransfer) {
+          renderMessages();
+        }
+      }
+    }, 1200);
+  </script>
+</body>
+</html>
